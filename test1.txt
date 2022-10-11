@@ -1,0 +1,5 @@
+001 rebase and change
+by git rebase  3 + 1 commit, and then modify the target commit pick to edit.
+When the commit is changed as expected.
+Then, git rebase --continue, done.
+git push origin --force, then update it into git repo.
